@@ -93,7 +93,7 @@ public class NeuralNetwork {
             neurons.getFirst().get(i).setRawOutput(inputs[i]);
         }
         biasNeuron.setRawOutput(1);
-        biasNeuron.setProcessedOutput(1);
+        biasNeuron.calculateProcessedOutput();
     }
 
     public double[] getOutputs() {
