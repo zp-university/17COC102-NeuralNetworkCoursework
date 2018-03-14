@@ -19,6 +19,9 @@ public abstract class Neuron {
     @Getter
     @Setter
     private double processedOutput;
+    @Getter
+    @Setter
+    private double deltaValue;
 
     @Getter
     private final LinkedHashMap<Neuron, Connection> connections = new LinkedHashMap<>();
@@ -47,4 +50,5 @@ public abstract class Neuron {
     }
 
     public abstract double calculateProcessedOutput();
+    public abstract double calculateDerivativeOutput(double processedOutput);
 }

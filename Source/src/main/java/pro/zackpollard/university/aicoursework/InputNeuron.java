@@ -7,4 +7,9 @@ public class InputNeuron extends Neuron {
         setProcessedOutput(getRawOutput());
         return getProcessedOutput();
     }
+
+    @Override
+    public double calculateDerivativeOutput(double processedOutput) {
+        return processedOutput;
+    }
 }

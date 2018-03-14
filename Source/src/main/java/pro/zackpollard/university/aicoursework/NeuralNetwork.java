@@ -36,21 +36,18 @@ public class NeuralNetwork {
 
 
     //Hyperparameters
-    private final double epsilon;
     private final double learningRate;
 
 
     /**
      * Creates a new NeuralNetwork object.
      *
-     * @param epsilon       The epsilon value for this neural network
      * @param learningRate  The learning rate value for this neural network
      * @param inputLayer    The amount of input neurons for the network
      * @param hiddenLayers  The amount of neurons in each hidden layer for the network
      * @param outputLayer   The amount of output neurons for the network
      */
-    public NeuralNetwork(double epsilon, double learningRate, int inputLayer, int[] hiddenLayers, int outputLayer) {
-        this.epsilon = epsilon;
+    public NeuralNetwork(double learningRate, int inputLayer, int[] hiddenLayers, int outputLayer) {
         this.learningRate = learningRate;
         this.inputLayer = inputLayer;
         this.hiddenLayers = hiddenLayers;
@@ -112,8 +109,38 @@ public class NeuralNetwork {
         }
     }
 
+    public void runBackpropagation(double correctOutputs[]) {
+
+        for(int i = neurons.size() - 1; i >= 1; i--) {
+            LinkedList<Neuron> layer = neurons.get(i);
+            for(int j = 0; j < layer.size(); ++j) {
+                Neuron neuron = layer.get(j);
+                double deltaValue = neuron.calculateDerivativeOutput(neuron.getProcessedOutput());
+                //If this is the output layer, apply a slightly different function to get the delta value
+                if(i == neurons.size() - 1) {
+                    deltaValue = deltaValue * (correctOutputs[j] - neuron.getProcessedOutput());
+                } else {
+                    double weightErrorSum = 0;
+                    for(Neuron rightLayerNeuron : neurons.get(i + 1)) {
+                        Connection connection = rightLayerNeuron.getConnections().get(neuron);
+                        weightErrorSum += connection.getWeight() * rightLayerNeuron.getDeltaValue();
+                    }
+                    deltaValue = deltaValue * weightErrorSum;
+                }
+                neuron.setDeltaValue(deltaValue);
+                for(Connection connection : neuron.getConnections().values()) {
+                    connection.setWeight(connection.getWeight() + (learningRate * neuron.getDeltaValue() * connection.getFromNeuron().getProcessedOutput()));
+                }
+            }
+        }
+    }
+
     public void run() {
         setInput(inputs[0]);
+        for(int i = 0; i <= 10000; ++i) {
+            runForwardOperation();
+            runBackpropagation(correctOutputs[0]);
+        }
         runForwardOperation();
         System.out.println(getOutputs()[0]);
     }
