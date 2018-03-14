@@ -49,6 +49,18 @@ public abstract class Neuron {
         return output;
     }
 
+    public void createSnapshot(NeuralNetwork.SnapshotName name) {
+        for(Connection connection : connections.values()) {
+            connection.createSnapshot(name);
+        }
+    }
+
+    public void restoreSnapshot(NeuralNetwork.SnapshotName name) {
+        for(Connection connection : connections.values()) {
+            connection.restoreSnapshot(name);
+        }
+    }
+
     public abstract double calculateProcessedOutput();
     public abstract double calculateDerivativeOutput(double processedOutput);
 }

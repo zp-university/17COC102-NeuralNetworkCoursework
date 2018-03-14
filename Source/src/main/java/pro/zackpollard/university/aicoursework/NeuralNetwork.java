@@ -17,8 +17,8 @@ public class NeuralNetwork {
     private double inputs[][] = { {1, 0} };
     private double correctOutputs[][] = { {1} };
 
-    //Calculated outputs
-    private double finalOutput[] = {};
+    private double validationInputs[][] = { {1, 0} };
+    private double correctValidationOutputs[][] = { {1} };
 
     //Neurons
     private final LinkedList<LinkedList<Neuron>>  neurons = new LinkedList<>();
@@ -112,6 +112,16 @@ public class NeuralNetwork {
         }
     }
 
+    public double[][] runSeperateDataSet(double[][] inputs) {
+        double[][] outputs = new double[inputs.length][outputLayer];
+        for(int i = 0; i < inputs.length; ++i) {
+            setInput(inputs[i]);
+            runForwardOperation();
+            outputs[i] = getOutputs();
+        }
+        return outputs;
+    }
+
     public void runBackpropagation(double correctOutputs[]) {
 
         for(int i = neurons.size() - 1; i >= 1; i--) {
@@ -140,29 +150,76 @@ public class NeuralNetwork {
 
     public FinishReason runTraining() {
         //Run until maxEpoch, or forever if -1 is specified
+        double previousValidationError = 1;
         double totalError = 1;
-        for(int i = 0; i != maxEpoch; ++i) {
+        for(int epoch = 0; epoch != maxEpoch; ++epoch) {
             if(totalError <= maxError) {
+                restoreNetworkSnapshot(SnapshotName.LAST_EPOCH);
                 return FinishReason.BELOW_MAX_ERROR;
             }
 
-            totalError = 0;
+            //Run neural network against validation set every 1000 epochs
+            if(epoch % 1000 == 0) {
+                System.out.println("Epoch: " + epoch);
+                double validationError = 0;
+                for(int i = 0; i < validationInputs.length; ++i) {
+                    setInput(validationInputs[i]);
+                    runForwardOperation();
 
-            for(int j = 0; j < inputs.length; ++j) {
-                setInput(inputs[j]);
+                    double[] output = getOutputs();
+
+                    for(int j = 0; j < correctValidationOutputs[i].length; ++j) {
+                        double inputError = Math.pow(output[j] - correctValidationOutputs[i][j], 2);
+                        validationError += inputError;
+                    }
+
+                    if(validationError > previousValidationError) {
+                        System.out.println(validationError);
+                        System.out.println(previousValidationError);
+                        restoreNetworkSnapshot(SnapshotName.LAST_VALIDATION_RUN);
+                        return FinishReason.VALIDATION_ERROR_WORSE;
+                    }
+
+                    createNetworkSnapshot(SnapshotName.LAST_VALIDATION_RUN);
+                    previousValidationError = validationError;
+                }
+            }
+
+            //Calculate error and do another round of backpropagation
+            totalError = 0;
+            for(int i = 0; i < inputs.length; ++i) {
+                createNetworkSnapshot(SnapshotName.LAST_EPOCH);
+                setInput(inputs[i]);
                 runForwardOperation();
 
-                finalOutput = getOutputs();
+                double[] output = getOutputs();
 
-                for(int k = 0; k < correctOutputs[j].length; ++k) {
-                    double inputError = Math.pow(finalOutput[k] - correctOutputs[j][k], 2);
+                for(int j = 0; j < correctOutputs[i].length; ++j) {
+                    double inputError = Math.pow(output[j] - correctOutputs[i][j], 2);
                     totalError += inputError;
                 }
 
                 runBackpropagation(correctOutputs[0]);
             }
         }
+        runForwardOperation();
         return FinishReason.REACHED_MAX_EPOCH;
+    }
+
+    private void restoreNetworkSnapshot(SnapshotName name) {
+        for(LinkedList<Neuron> layer : neurons) {
+            for(Neuron neuron : layer) {
+                neuron.restoreSnapshot(name);
+            }
+        }
+    }
+
+    private void createNetworkSnapshot(SnapshotName name) {
+        for(LinkedList<Neuron> layer : neurons) {
+            for(Neuron neuron : layer) {
+                neuron.createSnapshot(name);
+            }
+        }
     }
 
     public double getRandomWeight() {
@@ -171,6 +228,12 @@ public class NeuralNetwork {
 
     public enum FinishReason {
         REACHED_MAX_EPOCH,
-        BELOW_MAX_ERROR
+        BELOW_MAX_ERROR,
+        VALIDATION_ERROR_WORSE
+    }
+
+    public enum SnapshotName {
+        LAST_EPOCH,
+        LAST_VALIDATION_RUN
     }
 }
