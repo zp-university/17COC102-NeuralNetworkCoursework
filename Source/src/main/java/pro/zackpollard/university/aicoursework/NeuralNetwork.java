@@ -18,7 +18,6 @@ public class NeuralNetwork {
     private double correctOutputs[][] = { {1} };
 
     //Calculated outputs
-    private double currentOutputs[][] = {};
     private double finalOutput[] = {};
 
     //Neurons
@@ -37,6 +36,8 @@ public class NeuralNetwork {
 
     //Hyperparameters
     private final double learningRate;
+    private final int maxEpoch;
+    private final double maxError;
 
 
     /**
@@ -47,11 +48,13 @@ public class NeuralNetwork {
      * @param hiddenLayers  The amount of neurons in each hidden layer for the network
      * @param outputLayer   The amount of output neurons for the network
      */
-    public NeuralNetwork(double learningRate, int inputLayer, int[] hiddenLayers, int outputLayer) {
+    public NeuralNetwork(double learningRate, int maxEpoch, double maxError, int inputLayer, int[] hiddenLayers, int outputLayer) {
         this.learningRate = learningRate;
         this.inputLayer = inputLayer;
         this.hiddenLayers = hiddenLayers;
         this.outputLayer = outputLayer;
+        this.maxEpoch = maxEpoch;
+        this.maxError = maxError;
 
         this.setup();
     }
@@ -135,17 +138,39 @@ public class NeuralNetwork {
         }
     }
 
-    public void run() {
-        setInput(inputs[0]);
-        for(int i = 0; i <= 10000; ++i) {
-            runForwardOperation();
-            runBackpropagation(correctOutputs[0]);
+    public FinishReason runTraining() {
+        //Run until maxEpoch, or forever if -1 is specified
+        double totalError = 1;
+        for(int i = 0; i != maxEpoch; ++i) {
+            if(totalError <= maxError) {
+                return FinishReason.BELOW_MAX_ERROR;
+            }
+
+            totalError = 0;
+
+            for(int j = 0; j < inputs.length; ++j) {
+                setInput(inputs[j]);
+                runForwardOperation();
+
+                finalOutput = getOutputs();
+
+                for(int k = 0; k < correctOutputs[j].length; ++k) {
+                    double inputError = Math.pow(finalOutput[k] - correctOutputs[j][k], 2);
+                    totalError += inputError;
+                }
+
+                runBackpropagation(correctOutputs[0]);
+            }
         }
-        runForwardOperation();
-        System.out.println(getOutputs()[0]);
+        return FinishReason.REACHED_MAX_EPOCH;
     }
 
     public double getRandomWeight() {
         return ThreadLocalRandom.current().nextDouble(getRandomWeightMin(), getRandomWeightMax());
+    }
+
+    public enum FinishReason {
+        REACHED_MAX_EPOCH,
+        BELOW_MAX_ERROR
     }
 }
