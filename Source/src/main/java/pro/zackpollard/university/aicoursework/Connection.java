@@ -9,6 +9,7 @@ import java.util.HashMap;
 public class Connection {
 
     private double weight;
+    private double previousWeightChange;
 
     private transient final Neuron fromNeuron;
     private transient final Neuron toNeuron;

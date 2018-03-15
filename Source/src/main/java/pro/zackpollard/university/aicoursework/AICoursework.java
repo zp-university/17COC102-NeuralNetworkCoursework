@@ -38,7 +38,7 @@ public class AICoursework {
             ++count;
         }
 
-        NeuralNetwork neuralNetwork = new NeuralNetwork(0.1, 10000000, 0.00000000001, inputs, outputs,6, new int[]{5}, 1);
+        NeuralNetwork neuralNetwork = new NeuralNetwork(0.2, 10000000, 0.00000000001, 0.5, inputs, outputs,6, new int[]{20}, 1);
         System.out.println(neuralNetwork.runTraining());
         System.out.println(neuralNetwork.getOutputs()[0]);
         double[][] comparison = new double[neuralNetwork.getTestInputs().length][2];
@@ -51,6 +51,6 @@ public class AICoursework {
             comparison[i][1] = neuralNetwork.getCorrectTestOutputs()[i][0];
         }
 
-        System.out.println("Nooooooo :(");
+        System.out.println("Woop! :D");
     }
 }

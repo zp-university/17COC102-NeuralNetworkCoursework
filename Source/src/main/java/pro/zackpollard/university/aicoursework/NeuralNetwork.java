@@ -47,6 +47,7 @@ public class NeuralNetwork {
     private final double learningRate;
     private final int maxEpoch;
     private final double minError;
+    private final double momentumFactor;
 
     /**
      * Creates a new NeuralNetwork object.
@@ -56,13 +57,14 @@ public class NeuralNetwork {
      * @param hiddenLayers  The amount of neurons in each hidden layer for the network
      * @param outputLayer   The amount of output neurons for the network
      */
-    public NeuralNetwork(double learningRate, int maxEpoch, double minError, double[][] inputs, double[][] outputs, int inputLayer, int[] hiddenLayers, int outputLayer) {
+    public NeuralNetwork(double learningRate, int maxEpoch, double minError, double momentumFactor, double[][] inputs, double[][] outputs, int inputLayer, int[] hiddenLayers, int outputLayer) {
         this.learningRate = learningRate;
         this.inputLayer = inputLayer;
         this.hiddenLayers = hiddenLayers;
         this.outputLayer = outputLayer;
         this.maxEpoch = maxEpoch;
         this.minError = minError;
+        this.momentumFactor = momentumFactor;
 
         //Normalise inputs and outputs
         inputNormalisations = new double[inputs[0].length][2];
@@ -225,7 +227,10 @@ public class NeuralNetwork {
                 }
                 neuron.setDeltaValue(deltaValue);
                 for(Connection connection : neuron.getConnections().values()) {
-                    connection.setWeight(connection.getWeight() + (learningRate * neuron.getDeltaValue() * connection.getFromNeuron().getProcessedOutput()));
+                    double previousWeight = connection.getWeight();
+                    double newWeight = connection.getWeight() + (learningRate * neuron.getDeltaValue() * connection.getFromNeuron().getProcessedOutput()) + (momentumFactor * connection.getPreviousWeightChange());
+                    connection.setWeight(newWeight);
+                    connection.setPreviousWeightChange(newWeight - previousWeight);
                 }
             }
         }
