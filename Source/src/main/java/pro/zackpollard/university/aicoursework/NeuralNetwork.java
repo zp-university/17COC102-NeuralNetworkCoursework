@@ -46,7 +46,7 @@ public class NeuralNetwork {
     //Hyperparameters
     private final double learningRate;
     private final int maxEpoch;
-    private final double maxError;
+    private final double minError;
 
     /**
      * Creates a new NeuralNetwork object.
@@ -56,13 +56,13 @@ public class NeuralNetwork {
      * @param hiddenLayers  The amount of neurons in each hidden layer for the network
      * @param outputLayer   The amount of output neurons for the network
      */
-    public NeuralNetwork(double learningRate, int maxEpoch, double maxError, double[][] inputs, double[][] outputs, int inputLayer, int[] hiddenLayers, int outputLayer) {
+    public NeuralNetwork(double learningRate, int maxEpoch, double minError, double[][] inputs, double[][] outputs, int inputLayer, int[] hiddenLayers, int outputLayer) {
         this.learningRate = learningRate;
         this.inputLayer = inputLayer;
         this.hiddenLayers = hiddenLayers;
         this.outputLayer = outputLayer;
         this.maxEpoch = maxEpoch;
-        this.maxError = maxError;
+        this.minError = minError;
 
         //Normalise inputs and outputs
         inputNormalisations = new double[inputs[0].length][2];
@@ -236,7 +236,7 @@ public class NeuralNetwork {
         double previousValidationError = Double.MAX_VALUE;
         double totalError = 1;
         for(int epoch = 0; epoch != maxEpoch; ++epoch) {
-            if(totalError <= maxError) {
+            if(totalError <= minError) {
                 restoreNetworkSnapshot(SnapshotName.LAST_EPOCH);
                 return FinishReason.BELOW_MAX_ERROR;
             }
