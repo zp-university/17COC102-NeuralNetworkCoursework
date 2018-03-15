@@ -14,17 +14,20 @@ public class NeuralNetwork {
     //Utilities
     private Random random = new Random();
 
-    //Test Input Data
-    private double inputs[][] = { {1, 0} };
-    private double correctOutputs[][] = { {1} };
+    //Input Data
+    private double originalInputs[][];
+    private double correctOriginalOutputs[][];
 
-    private double validationInputs[][] = { {1, 0} };
-    private double correctValidationOutputs[][] = { {1} };
+    private double inputs[][];
+    private double correctOutputs[][];
+
+    private double validationInputs[][];
+    private double correctValidationOutputs[][];
 
     @Getter
-    private double testInputs[][] = { {1, 0} };
+    private double testInputs[][];
     @Getter
-    private double correctTestOutputs[][] = { {1} };
+    private double correctTestOutputs[][];
 
     //Normalisation Values
     private double[][] inputNormalisations;
@@ -65,93 +68,54 @@ public class NeuralNetwork {
         this.maxEpoch = maxEpoch;
         this.minError = minError;
         this.momentumFactor = momentumFactor;
-
-        //Normalise inputs and outputs
-        inputNormalisations = new double[inputs[0].length][2];
-        outputNormalisations = new double[outputs[0].length][2];
-
-        System.out.println("Calculating min & max values...");
-
-        //Calculate min and max for inputs
-        for(int i = 0; i < inputLayer; ++i) {
-            int maxValId = 0;
-            int minValId = 0;
-            for(int j = 0; j < inputs.length; ++j) {
-                if(inputs[j][i] > inputs[maxValId][i]) {
-                    maxValId = j;
-                } else if(inputs[j][i] < inputs[minValId][i]) {
-                    minValId = j;
-                }
-            }
-            inputNormalisations[i][0] = inputs[maxValId][i];
-            inputNormalisations[i][1] = inputs[minValId][i];
-        }
-
-        //Calculate min and max for outputs
-        for(int i = 0; i < outputLayer; ++i) {
-            int maxValId = 0;
-            int minValId = 0;
-            for(int j = 0; j < outputs.length; ++j) {
-                if(outputs[j][i] > outputs[maxValId][i]) {
-                    maxValId = j;
-                } else if(outputs[j][i] < outputs[minValId][i]) {
-                    minValId = j;
-                }
-            }
-            outputNormalisations[i][0] = outputs[maxValId][i];
-            outputNormalisations[i][1] = outputs[minValId][i];
-        }
-
-        System.out.println("Normalising...");
-
-        //Normalise inputs
-        for(int i = 0; i < inputs.length; ++i) {
-            for(int j = 0; j < inputs[i].length; ++j) {
-                double maxVal = inputNormalisations[j][0];
-                double minVal = inputNormalisations[j][1];
-                inputs[i][j] = ((inputs[i][j] - minVal) / (maxVal - minVal));
-            }
-        }
-
-        //Normalise outputs
-        for(int i = 0; i < outputs.length; ++i) {
-            for(int j = 0; j < outputs[i].length; ++j) {
-                double maxVal = outputNormalisations[j][0];
-                double minVal = outputNormalisations[j][1];
-                outputs[i][j] = ((outputs[i][j] - minVal) / (maxVal - minVal));
-            }
-        }
-
-        int validationEnd = (inputs.length / 10) * 2;
-        int testEnd = validationEnd * 2;
-        validationInputs = Arrays.copyOfRange(inputs, 0, validationEnd);
-        correctValidationOutputs = Arrays.copyOfRange(outputs, 0, validationEnd);
-        testInputs = Arrays.copyOfRange(inputs, validationEnd, testEnd);
-        correctTestOutputs = Arrays.copyOfRange(outputs, validationEnd, testEnd);
-        this.inputs = Arrays.copyOfRange(inputs, testEnd, inputs.length);
-        this.correctOutputs = Arrays.copyOfRange(outputs, testEnd, inputs.length);
+        this.originalInputs = inputs;
+        this.correctOriginalOutputs = outputs;
 
         this.setup();
     }
 
-    public void denormalise(double[][] output) {
-        for(int i = 0; i < output.length; ++i) {
-            for(int j = 0; j < output[i].length; ++j) {
-                double maxVal = outputNormalisations[j][0];
-                double minVal = outputNormalisations[j][1];
-                output[i][j] = (maxVal - minVal) * ((output[i][j])) + minVal;
-            }
-        }
-    }
-
+    /**
+     * Sets up the network based on the parameters specified by the user
+     */
     private void setup() {
 
+        System.out.println("Calculating min & max values...");
+        //Normalise inputs and outputs
+        inputNormalisations = new double[originalInputs[0].length][2];
+        outputNormalisations = new double[correctOriginalOutputs[0].length][2];
+
+        //Calculate min and max for inputs
+        calculateMinMaxValues(inputLayer, originalInputs, inputNormalisations);
+        //Calculate min and max for outputs
+        calculateMinMaxValues(outputLayer, correctOriginalOutputs, outputNormalisations);
+
+        System.out.println("Normalising...");
+
+        //Normalise inputs
+        normalise(originalInputs, inputNormalisations);
+        //Normalise outputs
+        normalise(correctOriginalOutputs, outputNormalisations);
+
+        //End index of validation set of data
+        int validationEnd = (originalInputs.length / 10) * 2;
+        //End index of test set of data
+        int testEnd = validationEnd * 2;
+        //Split data into validation, test and training sets of inputs and outputs
+        validationInputs = Arrays.copyOfRange(originalInputs, 0, validationEnd);
+        correctValidationOutputs = Arrays.copyOfRange(correctOriginalOutputs, 0, validationEnd);
+        testInputs = Arrays.copyOfRange(originalInputs, validationEnd, testEnd);
+        correctTestOutputs = Arrays.copyOfRange(correctOriginalOutputs, validationEnd, testEnd);
+        inputs = Arrays.copyOfRange(originalInputs, testEnd, originalInputs.length);
+        correctOutputs = Arrays.copyOfRange(correctOriginalOutputs, testEnd, originalInputs.length);
+
+        //Add the amount of InputNeuron's specified by the user to the input layer
         LinkedList<Neuron> inputNeurons = new LinkedList<>();
         neurons.add(0, inputNeurons);
         for(int i = 0; i < inputLayer; ++i) {
             inputNeurons.add(i, new InputNeuron());
         }
 
+        //Add the amount of SigmoidNeuron's specified by the user to the hidden layer(s)
         for(int i = 0; i < hiddenLayers.length; ++i) {
             LinkedList<Neuron> hiddenNeurons = new LinkedList<>();
             neurons.add(i + 1, hiddenNeurons);
@@ -163,6 +127,7 @@ public class NeuralNetwork {
             }
         }
 
+        //Add the amount of SigmoidNeuron's specified by the user to the output layer
         LinkedList<Neuron> outputNeurons = new LinkedList<>();
         neurons.add(neurons.size(), outputNeurons);
         for(int i = 0; i < outputLayer; ++i) {
@@ -173,6 +138,47 @@ public class NeuralNetwork {
         }
     }
 
+    private void calculateMinMaxValues(int neurons, double[][] values, double[][] storageLocation) {
+        for(int i = 0; i < neurons; ++i) {
+            int maxValId = 0;
+            int minValId = 0;
+            for(int j = 0; j < values.length; ++j) {
+                if(values[j][i] > values[maxValId][i]) {
+                    maxValId = j;
+                } else if(values[j][i] < values[minValId][i]) {
+                    minValId = j;
+                }
+            }
+            storageLocation[i][0] = values[maxValId][i];
+            storageLocation[i][1] = values[minValId][i];
+        }
+    }
+
+    private void normalise(double[][] values, double[][] minMaxStorageLocation) {
+        for(int i = 0; i < values.length; ++i) {
+            for(int j = 0; j < values[i].length; ++j) {
+                double maxVal = minMaxStorageLocation[j][0];
+                double minVal = minMaxStorageLocation[j][1];
+                values[i][j] = ((values[i][j] - minVal) / (maxVal - minVal));
+            }
+        }
+    }
+
+    //This takes the noramlised set of outputs and edits them in-place to the normalised versions
+    public void denormalise(double[][] output) {
+        for(int i = 0; i < output.length; ++i) {
+            for(int j = 0; j < output[i].length; ++j) {
+                double maxVal = outputNormalisations[j][0];
+                double minVal = outputNormalisations[j][1];
+                output[i][j] = (maxVal - minVal) * ((output[i][j])) + minVal;
+            }
+        }
+    }
+
+    /**
+     *
+     * @param inputs
+     */
     public void setInput(double inputs[]) {
         for(int i = 0; i < inputLayer; ++i) {
             neurons.getFirst().get(i).setRawOutput(inputs[i]);
