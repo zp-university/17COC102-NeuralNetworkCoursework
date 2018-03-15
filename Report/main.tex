@@ -21,11 +21,35 @@
 
 \newpage
 \section{Introduction}
+This report will detail the entire process undergone to create, modify and improve a custom written neural network; all of the data pre-processing that was done with details as to why this was done; splitting of the data into different sets for training and evaluation of the model; the process undergone for training and network selection; a detailed evaluation of the final model and why that model was chosen over others; and a comparison with a data driven model to see how my neural network compares.
 
+\newpage
+\section{Implementation of the MLP Algorithm}
+I chose to implement my algorithm in Java as it is a fast language that I am confident with using. Using my system you can setup a network in whatever structure you like, with as many input, hidden and output neurons as you want. You can specify the network structure and various hyperparameters such as learning rate, max epoch and max mean squared error (MSE). During the training stage the algorithm will do various comparisons to decide when to stop learning, these use some of the hyperparameters detailed above. If the current epoch exceeds the max epoch, training will stop, similarly, if the MSE for the training set goes below the min MSE parameter then training stops. The training function also calculates the MSE for the verification data set every one-thousand epochs and compares it the value it had at the last check. If the MSE has gotten larger since the last one-thousand epoch check then the training stops and will revert the connection weights and neuron biases to that last checkpoint.
+
+\newpage
+\section{Data Pre-Processing}
+
+\newpage
+\section{Training and Network Selection}
+
+\newpage
+\section{Evaluation of the Final Model}
+
+\newpage
+\section{Comparison with other Data Driven Model}
 
 \newpage
 \section{Bibliography}
 \bibliographystyle{agsm}
 \bibliography{references}
+
+
+\newpage
+\section{Appendix}
+\appendix
+\section{Source Code}
+\subsection{}
+
 
 \end{document}
