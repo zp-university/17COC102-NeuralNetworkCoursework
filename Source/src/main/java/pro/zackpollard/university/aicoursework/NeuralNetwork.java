@@ -44,7 +44,7 @@ public class NeuralNetwork {
     private final double randomWeightMin = -getRandomWeightMax();
 
     //Hyperparameters
-    private final double learningRate;
+    private double learningRate;
     private final int maxEpoch;
     private final double minError;
     private final double momentumFactor;
@@ -240,6 +240,7 @@ public class NeuralNetwork {
         //Run until maxEpoch, or forever if -1 is specified
         double previousValidationError = Double.MAX_VALUE;
         double totalError = 1;
+        double lastError = 0;
         for(int epoch = 0; epoch != maxEpoch; ++epoch) {
             if(totalError <= minError) {
                 restoreNetworkSnapshot(SnapshotName.LAST_EPOCH);
@@ -280,10 +281,12 @@ public class NeuralNetwork {
                 previousValidationError = validationError;
             }
 
+            //Create snapshot before processing is done for this epoch
+            createNetworkSnapshot(SnapshotName.LAST_EPOCH);
+
             //Calculate error and do another round of backpropagation
             totalError = 0;
             for(int i = 0; i < inputs.length; ++i) {
-                createNetworkSnapshot(SnapshotName.LAST_EPOCH);
                 setInput(inputs[i]);
                 runForwardOperation();
 
@@ -303,6 +306,20 @@ public class NeuralNetwork {
             if(epoch % 100 == 0) {
                 System.out.println("Total Error:" + totalError);
             }
+
+            //Bold Driver
+            //Don't run on first pass
+            if(lastError != 0) {
+                if(totalError < lastError) {
+                    learningRate *= 1.1;
+                } else if(totalError> lastError + Math.pow(10, -10)) {
+                    learningRate *= 0.5;
+                    restoreNetworkSnapshot(SnapshotName.LAST_EPOCH);
+                    epoch = epoch - 1;
+                    continue;
+                }
+            }
+            lastError = totalError;
         }
         runForwardOperation();
         return FinishReason.REACHED_MAX_EPOCH;
