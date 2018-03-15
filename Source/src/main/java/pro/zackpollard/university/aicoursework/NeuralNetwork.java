@@ -10,12 +10,12 @@ import java.util.concurrent.ThreadLocalRandom;
 
 @ToString
 public class NeuralNetwork {
-
     //Utilities
     private Random random = new Random();
-
     //Input Data
+    @Getter
     private double originalInputs[][];
+    @Getter
     private double correctOriginalOutputs[][];
 
     private double inputs[][];
@@ -55,10 +55,15 @@ public class NeuralNetwork {
     /**
      * Creates a new NeuralNetwork object.
      *
-     * @param learningRate  The learning rate value for this neural network
-     * @param inputLayer    The amount of input neurons for the network
-     * @param hiddenLayers  The amount of neurons in each hidden layer for the network
-     * @param outputLayer   The amount of output neurons for the network
+     * @param learningRate      The learning rate value for this neural network
+     * @param maxEpoch          The max amount of epochs that will run before the training terminates
+     * @param minError          The minimum error at which the training will terminate
+     * @param momentumFactor    The factor to apply to the momentum function
+     * @param inputs            The inputs to run through the neural network
+     * @param outputs           The correct outputs for the provided inputs
+     * @param inputLayer        The amount of input neurons for the network
+     * @param hiddenLayers      The amount of neurons in each hidden layer for the network
+     * @param outputLayer       The amount of output neurons for the network
      */
     public NeuralNetwork(double learningRate, int maxEpoch, double minError, double momentumFactor, double[][] inputs, double[][] outputs, int inputLayer, int[] hiddenLayers, int outputLayer) {
         this.learningRate = learningRate;
@@ -90,7 +95,6 @@ public class NeuralNetwork {
         calculateMinMaxValues(outputLayer, correctOriginalOutputs, outputNormalisations);
 
         System.out.println("Normalising...");
-
         //Normalise inputs
         normalise(originalInputs, inputNormalisations);
         //Normalise outputs
@@ -138,6 +142,7 @@ public class NeuralNetwork {
         }
     }
 
+    //Calculates min and max values for a set of data and stores them in the storageLocation
     private void calculateMinMaxValues(int neurons, double[][] values, double[][] storageLocation) {
         for(int i = 0; i < neurons; ++i) {
             int maxValId = 0;
@@ -154,6 +159,7 @@ public class NeuralNetwork {
         }
     }
 
+    //Normalises all the values it is given based on the min and max values that are stored. This is all done in-place
     private void normalise(double[][] values, double[][] minMaxStorageLocation) {
         for(int i = 0; i < values.length; ++i) {
             for(int j = 0; j < values[i].length; ++j) {
@@ -164,7 +170,7 @@ public class NeuralNetwork {
         }
     }
 
-    //This takes the noramlised set of outputs and edits them in-place to the normalised versions
+    //This takes the normalised set of outputs and edits them in-place to the normalised versions
     public void denormalise(double[][] output) {
         for(int i = 0; i < output.length; ++i) {
             for(int j = 0; j < output[i].length; ++j) {
@@ -175,10 +181,7 @@ public class NeuralNetwork {
         }
     }
 
-    /**
-     *
-     * @param inputs
-     */
+    //Sets the inputs on the input neurons to the given values to prepare for a forward operation
     public void setInput(double inputs[]) {
         for(int i = 0; i < inputLayer; ++i) {
             neurons.getFirst().get(i).setRawOutput(inputs[i]);
@@ -187,6 +190,7 @@ public class NeuralNetwork {
         biasNeuron.calculateProcessedOutput();
     }
 
+    //Gets the current outputs on the output neurons from the last forward operation
     public double[] getOutputs() {
         double[] outputs = new double[outputLayer];
         for(int i = 0; i < outputLayer; ++i) {
@@ -195,6 +199,7 @@ public class NeuralNetwork {
         return outputs;
     }
 
+    //Runs through the network and computes the output values of each neuron
     public void runForwardOperation() {
         for(LinkedList<Neuron> layer : neurons) {
             for(Neuron neuron : layer) {
@@ -203,6 +208,7 @@ public class NeuralNetwork {
         }
     }
 
+    //Runs a given data set on the trained network and returns all the outputs for the given inputs
     public double[][] runSeperateDataSet(double[][] inputs) {
         double[][] outputs = new double[inputs.length][outputLayer];
         for(int i = 0; i < inputs.length; ++i) {
@@ -213,27 +219,36 @@ public class NeuralNetwork {
         return outputs;
     }
 
+    //This runs the backpropagation function on the current network based on the given correct outputs
     public void runBackpropagation(double correctOutputs[]) {
-
+        //Loops over all the layers in the network
         for(int i = neurons.size() - 1; i >= 1; i--) {
+            //Gets the current layer
             LinkedList<Neuron> layer = neurons.get(i);
+            //Loops over all the neurons in that layer
             for(int j = 0; j < layer.size(); ++j) {
+                //Gets the current neuron
                 Neuron neuron = layer.get(j);
+                //Calculates the derivative output for that neuron
                 double deltaValue = neuron.calculateDerivativeOutput(neuron.getProcessedOutput());
-                //If this is the output layer, apply a slightly different function to get the delta value
+                //If this is the output layer, applies a slightly different function to get the delta value
                 if(i == neurons.size() - 1) {
                     deltaValue = deltaValue * (correctOutputs[j] - neuron.getProcessedOutput());
                 } else {
                     double weightErrorSum = 0;
+                    //Loops over all connections to the right of the neuron and computes the sum of the weights * delta values
                     for(Neuron rightLayerNeuron : neurons.get(i + 1)) {
                         Connection connection = rightLayerNeuron.getConnections().get(neuron);
                         weightErrorSum += connection.getWeight() * rightLayerNeuron.getDeltaValue();
                     }
                     deltaValue = deltaValue * weightErrorSum;
                 }
+                //Sets the delta value on the neuron
                 neuron.setDeltaValue(deltaValue);
+                //Loops over all the connections to the left of that neuron and updates the weights
                 for(Connection connection : neuron.getConnections().values()) {
                     double previousWeight = connection.getWeight();
+                    //Calculates the new weight including the momentum from the last epoch
                     double newWeight = connection.getWeight() + (learningRate * neuron.getDeltaValue() * connection.getFromNeuron().getProcessedOutput()) + (momentumFactor * connection.getPreviousWeightChange());
                     connection.setWeight(newWeight);
                     connection.setPreviousWeightChange(newWeight - previousWeight);
@@ -242,18 +257,20 @@ public class NeuralNetwork {
         }
     }
 
+    //Runs training and decides when to stop the network learning
     public FinishReason runTraining() {
-        //Run until maxEpoch, or forever if -1 is specified
         double previousValidationError = Double.MAX_VALUE;
         double totalError = 1;
         double lastError = 0;
+        //Run until maxEpoch, or forever if -1 is specified
         for(int epoch = 0; epoch != maxEpoch; ++epoch) {
+            //Checks if the error is less than the minimum error and stops learning if it is
             if(totalError <= minError) {
                 restoreNetworkSnapshot(SnapshotName.LAST_EPOCH);
                 return FinishReason.BELOW_MAX_ERROR;
             }
 
-            //Run neural network against validation set every 1000 epochs
+            //Validate neural network against validation set every 1000 epochs
             if(epoch % 1000 == 0) {
                 System.out.println("Epoch: " + epoch);
                 double validationError = 0;
@@ -264,18 +281,24 @@ public class NeuralNetwork {
                     double[] output = getOutputs();
 
                     double exampleError = 0;
+                    //Loop over all correct outputs for this input set and calculate the sum of the errors
                     for(int j = 0; j < correctValidationOutputs[i].length; ++j) {
+                        //Calculate the squared error for this output
                         double outputError = Math.pow(output[j] - correctValidationOutputs[i][j], 2);
                         exampleError += outputError;
                     }
+                    //Divide the error by the amount of outputs to get the mean
                     exampleError += exampleError / correctValidationOutputs[i].length;
                     validationError += exampleError;
                 }
 
+                //Divide the overall error for the entire input set by the size of the input set to get the mean
                 validationError = validationError / validationInputs.length;
                 System.out.println("Validation Error: " + validationError);
                 System.out.println("Previous Validation Error: " + previousValidationError);
 
+                //Checks if the error is greater than the previous run of the validation set and stops learning
+                //and resets to that previous state if it is
                 if(validationError > previousValidationError) {
                     System.out.println(validationError);
                     System.out.println(previousValidationError);
@@ -283,6 +306,7 @@ public class NeuralNetwork {
                     return FinishReason.VALIDATION_ERROR_WORSE;
                 }
 
+                //Create a snapshot of this validation run for restoring on the next run if needed
                 createNetworkSnapshot(SnapshotName.LAST_VALIDATION_RUN);
                 previousValidationError = validationError;
             }
@@ -313,18 +337,20 @@ public class NeuralNetwork {
                 System.out.println("Total Error:" + totalError);
             }
 
-            //Bold Driver
+            //Bold Driver calculation
             //Don't run on first pass
-            if(lastError != 0) {
+            /**if(lastError != 0) {
+                //If error decreases, increase learningRate
                 if(totalError < lastError) {
                     learningRate *= 1.1;
+                //If error increases by anything over 10^-10 then halve learning rate and restore last epoch
                 } else if(totalError> lastError + Math.pow(10, -10)) {
                     learningRate *= 0.5;
                     restoreNetworkSnapshot(SnapshotName.LAST_EPOCH);
                     epoch = epoch - 1;
                     continue;
                 }
-            }
+            }**/
             lastError = totalError;
         }
         runForwardOperation();
@@ -349,6 +375,21 @@ public class NeuralNetwork {
 
     public double getRandomWeight() {
         return ThreadLocalRandom.current().nextDouble(getRandomWeightMin(), getRandomWeightMax());
+    }
+
+    public double getMeanSquaredError(double[][] output, double[][] correctOutput) {
+        double totalError = 0;
+        for(int i = 0; i < output.length; ++i) {
+            double exampleError = 0;
+            for(int j = 0; j < correctOutput[i].length; ++j) {
+                double inputError = Math.pow(correctOutput[i][j] - output[i][j], 2);
+                exampleError += inputError;
+            }
+            exampleError = exampleError / correctOutput[i].length;
+            totalError += exampleError;
+        }
+        totalError = totalError / correctOutputs.length;
+        return totalError;
     }
 
     public enum FinishReason {

@@ -3,9 +3,13 @@ package pro.zackpollard.university.aicoursework;
 import com.opencsv.CSVParserBuilder;
 import com.opencsv.CSVReader;
 import com.opencsv.CSVReaderBuilder;
+import com.opencsv.CSVWriter;
 
 import java.io.FileReader;
 import java.io.IOException;
+import java.io.Writer;
+import java.nio.file.Files;
+import java.nio.file.Paths;
 import java.util.Collections;
 import java.util.List;
 
@@ -38,11 +42,12 @@ public class AICoursework {
             ++count;
         }
 
-        NeuralNetwork neuralNetwork = new NeuralNetwork(0.2, 10000, 0.000001, 0.5, inputs, outputs,6, new int[]{6, 6}, 1);
+        NeuralNetwork neuralNetwork = new NeuralNetwork(0.2, 10000, 0.0001, 0.9, inputs, outputs,6, new int[]{6, 6}, 1);
         System.out.println(neuralNetwork.runTraining());
         System.out.println(neuralNetwork.getOutputs()[0]);
         double[][] comparison = new double[neuralNetwork.getTestInputs().length][2];
         double[][] output = neuralNetwork.runSeperateDataSet(neuralNetwork.getTestInputs());
+        System.out.println("Test MSE = " + neuralNetwork.getMeanSquaredError(output, neuralNetwork.getCorrectTestOutputs()));
         neuralNetwork.denormalise(output);
         neuralNetwork.denormalise(neuralNetwork.getCorrectTestOutputs());
 
@@ -50,6 +55,28 @@ public class AICoursework {
             comparison[i][0] = output[i][0];
             comparison[i][1] = neuralNetwork.getCorrectTestOutputs()[i][0];
         }
+
+        comparison = new double[neuralNetwork.getOriginalInputs().length][2];
+        output = neuralNetwork.runSeperateDataSet(neuralNetwork.getOriginalInputs());
+        System.out.println("Total MSE = " + neuralNetwork.getMeanSquaredError(output, neuralNetwork.getCorrectOriginalOutputs()));
+        neuralNetwork.denormalise(output);
+        neuralNetwork.denormalise(neuralNetwork.getCorrectOriginalOutputs());
+
+        for(int i = 0; i < output.length; ++i) {
+            comparison[i][0] = output[i][0];
+            comparison[i][1] = neuralNetwork.getCorrectOriginalOutputs()[i][0];
+        }
+
+        Writer writer = Files.newBufferedWriter(Paths.get("../Data/output.csv"));
+        CSVWriter csvWriter = new CSVWriter(writer, CSVWriter.DEFAULT_SEPARATOR, CSVWriter.NO_QUOTE_CHARACTER, CSVWriter.DEFAULT_ESCAPE_CHARACTER, CSVWriter.DEFAULT_LINE_END);
+        csvWriter.writeNext(new String[]{"Actual Output", "Expected Output"});
+
+        for(int i = 0; i < comparison.length; ++i) {
+            csvWriter.writeNext(new String[]{String.valueOf(comparison[i][0]), String.valueOf(comparison[i][1])});
+        }
+
+        csvWriter.flush();
+        writer.flush();
 
         System.out.println("Woop! :D");
     }

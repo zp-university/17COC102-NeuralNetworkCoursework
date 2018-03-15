@@ -2,6 +2,10 @@
 \usepackage[margin=1in]{geometry}
 \usepackage{fancyhdr}
 \usepackage{natbib}
+\usepackage{graphicx}
+\usepackage{pdfpages}
+\usepackage[toc,page]{appendix}
+\usepackage{minted}
 \pagestyle{fancy}
 \lhead{Advanced AI Coursework}
 \chead{Neural Network Report}
@@ -13,43 +17,147 @@
 \renewcommand{\footrulewidth}{0.4pt}
 \begin{document}
 
+\includepdf{coversheet}
+\setcounter{page}{1}
+
 \title{Advanced AI Coursework - Neural Network Report}
 \author{Zack Pollard}
 \maketitle
 
 \tableofcontents
 
-\newpage
-\section{Introduction}
+\section*{Abstract}
 This report will detail the entire process undergone to create, modify and improve a custom written neural network; all of the data pre-processing that was done with details as to why this was done; splitting of the data into different sets for training and evaluation of the model; the process undergone for training and network selection; a detailed evaluation of the final model and why that model was chosen over others; and a comparison with a data driven model to see how my neural network compares.
 
-\newpage
 \section{Implementation of the MLP Algorithm}
-I chose to implement my algorithm in Java as it is a fast language that I am confident with using. Using my system you can setup a network in whatever structure you like, with as many input, hidden and output neurons as you want. You can specify the network structure and various hyperparameters such as learning rate, max epoch and max mean squared error (MSE). During the training stage the algorithm will do various comparisons to decide when to stop learning, these use some of the hyperparameters detailed above. If the current epoch exceeds the max epoch, training will stop, similarly, if the MSE for the training set goes below the min MSE parameter then training stops. The training function also calculates the MSE for the verification data set every one-thousand epochs and compares it the value it had at the last check. If the MSE has gotten larger since the last one-thousand epoch check then the training stops and will revert the connection weights and neuron biases to that last checkpoint.
+Having never implemented anything like this before I decided to go for writing it in Java as it is a language that I am very confident programming in and it is also a very fast language for calculations such as the ones required for an Multi-Layer Perceptron Neural Network.
 
-\newpage
+\subsection{Network Design}
+My program allows the user to easily specify how many neurons they want in each layer, which makes it very simple to create different setups for a neural network. In order to create a new neural network you must specify some different parameters that you would like it to use, you can see the constructor for a neural network on line 68 of appendix \ref{appendix:neuralnetwork.java}. In memory the network is stored very similarly to how it is represented in a diagram. An array of arrays of neurons is stored which represents the layers and the neurons within each of those layers. Each Neuron object (seen in appendix \ref{appendix:neuron.java}) contains a map of Neuron to Connection objects which allows the Neuron to lookup all the connections to the left of it in the network. The Neuron objects are also made to be extensible as they are an abstract class. This means that in order to be used it has to be extended on another object which provides functions that are labelled abstract in the parent class. In my program there are two types of Neuron, an InputNeuron (appendix \ref{appendix:inputneuron.java}) and a SigmoidNeuron (appendix \ref{appendix:sigmoidneuron.java}). These two types of neuron perform entirely different code for the function Neuron\#calculateProcessedOutput() which makes it much nicer to program throughout as you don't have to manually deal with different layers processing data differently.
+
+\subsection{Network Build}
+The program builds the network automatically based off of the inputs that were provided by the user at the creation of the NeuralNetwork object. You can see this happening in the second half of the NeuralNetwork\#setup() function on line 116 of appendix \ref{appendix:neuralnetwork.java}. Once the network is built the user can start training the network and running the test data set through it. An example usage of the program would be something like this:
+\begin{minted}
+[breaklines,
+fontsize=\scriptsize,
+]{java}
+
+NeuralNetwork neuralNetwork = new NeuralNetwork(0.2, 10000, 0.0001, 0.9, inputs, outputs,6, new int[]{6, 6}, 1);
+double[][] comparison = new double[neuralNetwork.getTestInputs().length][2];
+double[][] output = neuralNetwork.runSeperateDataSet(neuralNetwork.getTestInputs());
+neuralNetwork.denormalise(output);
+neuralNetwork.denormalise(neuralNetwork.getCorrectTestOutputs());
+
+for(int i = 0; i < output.length; ++i) {
+    comparison[i][0] = output[i][0];
+    comparison[i][1] = neuralNetwork.getCorrectTestOutputs()[i][0];
+}
+
+\end{minted}
+
+\subsection{Data Pre-Processing}
+This section is described in more detail below, however some of the data pre-processing is done in the program automatically, namely the normalisation and data set splitting sections. As you can see from line 88-113 of appendix \ref{appendix:neuralnetwork.java} the data is first normalised in the initial array and then split into 3 separate data sets, the training set, validation set and test set. This data is then ready to be used for training later on. All the original min and max values are stored so that the outputs from the network can be automatically denormalised later on to make it easier for the user.
+
+\subsection{Training}
+The runTraining function as seen on line 261 of appendix \ref{appendix:neuralnetwork.java} does the processing of epochs and handles when the network should stop learning. It does this based on multiple different factors, and also influences the learning by changing certain values depending on the output from the last epoch. The training function checks if the error rate is smaller than the minError and stops learning if it is. Every 1000 epochs it will run the validation set through the current network and check if the mean squared error (MSE) of the validation set is worse than the last time it ran, if it is then it will stop the learning. After that it calculates the MSE of the current forward pass and saves that for the next run for the minError comparison. Once that is all done it will then run bold driver on the error rate and learning parameter in order to speed up or slow down the learning rate depending on how the previous epoch went.
+
+\subsection{Learning}
+The runBackpropagation function as seen on line 223 of appendix \ref{appendix:neuralnetwork.java} does all the learning for the network. It is called from the runTraining function and essentially runs through the network backwards calculating all of the delta values and derivative output values for all the neurons in the network. While it is doing this it will calculate all of the new weights for all the connections to the left of it based on the delta values it just calculated. This calculation of the new weight includes momentum as it helps get over local minima that the learning function would otherwise get stuck in.
+
+\subsection{Conclusion}
+Overall this program runs fairly well and produces a good output however it doesn't implement annealing which could have improved the output of the network. The program runs through epochs very fast which is great as it allows for quick testing, however if I were to do this again I would definitely work on making it easier to get the denormalised values out of the network and calculate the mean squared error of any output easily too. The lack of this functionality was due to time constraints and not realising the need for it early on in the design. However, regardless of this, my program still outputs a mean squared error 3.3001794578724944E-5 on the test data which resulted in a very close match to almost all of the expected outputs, generally only around 0.1-0.3 away from the expected value.
+
 \section{Data Pre-Processing}
+For the pre-processing of the data, I decided that the best way to approach this was in different stages. The first thing I wanted to do was graph each raw output against the date field in order to understand what each input looked like on a scatter graph. This gave me a very quick view of the data that were obviously outliers as they were hugely out of the range the rest of the data was in (see appendix \ref{appendix:raw-data-graphs}).
+
+\subsection{Removing Outliers}
+To decide what was and wasn't outliers, I compared the graphs side by side. Obviously, the very extreme values were outliers, however I needed to decide if there were any outliers closer to the curve of the data. When looking at the data, I noticed that both the humidity (appendix \ref{appendix:date-vs-humidity}) and the solar radiation (appendix \ref{appendix:date-vs-solar}) graphs were showing what looked like outliers quite close to the curve. I took a closer look at these values along with the output values from the pan evaporation graph (appendix \ref{appendix:date-vs-evaporation}) and came to the conclusion that these were not outliers in the data, but outliers in the days in that particular year. The reason that this data isn't on the usual curve is because either the humidity or solar radiation (or both) that day was significantly higher or lower than you would expect for that time of year which is why it looks like slight outliers on the graphs.
+
+\subsection{Removing Invalid Data}
+Along with the outliers, there was also some data that was just completely invalid in the data set. I found some inputs that were set to 'a' or just blank, which would cause the neural network to error as it expects all numeric inputs. These were simply to find and remove, I simply put the data in a table format in excel and looked at the list of unique values for each input which quickly showed me if there were any non-numeric values within that input data.
+
+\subsection{Data Modification}
+Something I decided to do was remove the date field from the raw data going into the neural network and instead replace it with a day field. This meant that the neural network could know what point it was in the year as that information is much more valuable for the trends that you see throughout the year than the entire date itself as the neural network wouldn't know how to process a date value, and even if it did, it wouldn't convert it to a useful field as it doesn't understand the context of the information.
+
+\subsection{Data Correlation}
+The next thing I decided to do was look at the correlation between all the inputs to the output which yielded some interesting results. I did this on the previously processed data so there were no outliers or bits of invalid data to skew the results. It turns out that the 'Day' field isn't actually that well correlated with the data, however I decided to leave it in as it will likely influence the decision slightly inside the neural network, I just expect the training to adjust the weights of that input to be fairly low. The rest of the inputs have a very strong correlation with the output 'PanE' which is very promising and should lead to a neural network that can predict what the result is fairly accurately.
+
+\subsection{Data Normalisation}
+For data normalisation I decided to move away from Excel and instead program my neural network input function so that it would normalise the data it is given automatically, this way it also knows how to denormalise the outputs from the network to give more sensible readings to the user. This works well and means the network can deal with any data that it is given, normalised or not, and produce useful output from the network based on the sigmoid function.
+
+\subsection{Data Splitting}
+Data splitting is another section that I decided to do automatically inside the neural network input function. When the system receives the input and it has been normalised, it then splits it into 60\% for the training set, 20\% for the validation set and 20\% for an independent test set that can be run against the trained network at the end to see how it does on real-world unseen data. This again means that the user doesn't need to input lots of different test sets, and instead can just give the program one big CSV file full of data and the program will deal with the rest automatically.
+
+\subsection{Final Data Set}
+The final data set that was given to the neural network consisted of cleaned data that was free of extreme outliers. You can see all the invalid and extreme data that was removed in appendix \ref{appendix:bad-data}. The final data set also included the 'Day' field and excluded the 'Date' field as only one was needed and I decided that day was a better option for the network to understand as detailed previously.
 
 \newpage
 \section{Training and Network Selection}
+For the training I tried many different values for the hyperparameters of the neural network including a much larger learning value, unlimited epochs, huge minimum error, a smaller and larger momentum factor and more/less hidden layers and/or hidden layer neurons. I was planning to write a program that did this automatically for me, but sadly didn't have time to do so before the hand-in date. The network stated as an example in my implementation section earlier was the one that gave me the MSE that you saw in the conclusion, which in my eyes was a fairly good output from the network. I'm sure it could have been better, but my network was stopping itself to avoid over-fitting every time so I believe I would have needed to play around with more parameters in order to do this.
 
-\newpage
 \section{Evaluation of the Final Model}
-
-\newpage
-\section{Comparison with other Data Driven Model}
-
-\newpage
-\section{Bibliography}
-\bibliographystyle{agsm}
-\bibliography{references}
-
+I ran many different neural networks, bold driver was the worst thing strangely and gave me a much larger MSE than without it. This could have been down to the parameters I gave it or my implementation could be wrong, however whatever I tried I couldn't get it to improve the network. I didn't try it without having momentum turned on, however I believe they are fairly separate so shouldn't interfere with eachother. I was happy with the final model, although it could have been better with more tuning of parameters.
 
 \newpage
 \section{Appendix}
-\appendix
-\section{Source Code}
-\subsection{}
-
+\begin{appendices}
+	
+	\section{Data Pre-Processing}
+	\graphicspath{{graphics/}}
+	
+	\subsection{Raw Data Graphs}
+	\label{appendix:raw-data-graphs}
+	
+	\subsubsection{Date vs Temperature}
+	\label{appendix:date-vs-temp}
+	\includegraphics[width=\textwidth]{date-vs-temp}
+	\subsubsection{Date vs Wind Speed}
+	\label{appendix:date-vs-wind}
+	\includegraphics[width=\textwidth]{date-vs-wind}
+	\subsubsection{Date vs Solar Radiation}
+	\label{appendix:date-vs-solar}
+	\includegraphics[width=\textwidth]{date-vs-solar}
+	\subsubsection{Date vs Air Pressure}
+	\label{appendix:date-vs-air}
+	\includegraphics[width=\textwidth]{date-vs-air}
+	\subsubsection{Date vs Humidity}
+	\label{appendix:date-vs-humidity}
+	\includegraphics[width=\textwidth]{date-vs-humidity}
+	\subsubsection{Date vs Pan Evaporation}
+	\label{appendix:date-vs-evaporation}
+	\includegraphics[width=\textwidth]{date-vs-evaporation}
+	
+	\subsection{Correlation}
+	\label{appendix:correlation}
+	\includegraphics[width=\textwidth]{data-correlation}
+	
+	\subsection{Bad Data}
+	\label{appendix:bad-data}
+	\includegraphics[width=\textwidth]{bad-data}
+	
+	\newpage
+	\section{Source Code}
+	\subsection{NeuralNetwork.java}
+	\label{appendix:neuralnetwork.java}
+	\inputminted[breaklines,frame=single, fontsize=\scriptsize, linenos=true]{java}{../Source/src/main/java/pro/zackpollard/university/aicoursework/NeuralNetwork.java}
+	
+	\subsection{Connection.java}
+	\label{appendix:connection.java}
+	\inputminted[breaklines,frame=single, fontsize=\scriptsize, linenos=true]{java}{../Source/src/main/java/pro/zackpollard/university/aicoursework/Connection.java}
+	
+	\newpage
+	\subsection{Neuron.java}
+	\label{appendix:neuron.java}
+	\inputminted[breaklines,frame=single, fontsize=\scriptsize, linenos=true]{java}{../Source/src/main/java/pro/zackpollard/university/aicoursework/Neuron.java}
+	
+	\subsection{InputNeuron.java}
+	\label{appendix:inputneuron.java}
+	\inputminted[breaklines,frame=single, fontsize=\scriptsize, linenos=true]{java}{../Source/src/main/java/pro/zackpollard/university/aicoursework/InputNeuron.java}
+	
+	\subsection{SigmoidNeuron.java}
+	\label{appendix:sigmoidneuron.java}
+	\inputminted[breaklines,frame=single, fontsize=\scriptsize, linenos=true]{java}{../Source/src/main/java/pro/zackpollard/university/aicoursework/SigmoidNeuron.java}
+	
+\end{appendices}
 
 \end{document}
