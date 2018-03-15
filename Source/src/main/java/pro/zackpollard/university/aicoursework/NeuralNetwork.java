@@ -3,6 +3,7 @@ package pro.zackpollard.university.aicoursework;
 import lombok.Getter;
 import lombok.ToString;
 
+import java.util.Arrays;
 import java.util.LinkedList;
 import java.util.Random;
 import java.util.concurrent.ThreadLocalRandom;
@@ -20,6 +21,15 @@ public class NeuralNetwork {
     private double validationInputs[][] = { {1, 0} };
     private double correctValidationOutputs[][] = { {1} };
 
+    @Getter
+    private double testInputs[][] = { {1, 0} };
+    @Getter
+    private double correctTestOutputs[][] = { {1} };
+
+    //Normalisation Values
+    private double[][] inputNormalisations;
+    private double[][] outputNormalisations;
+
     //Neurons
     private final LinkedList<LinkedList<Neuron>>  neurons = new LinkedList<>();
     private final int inputLayer;
@@ -33,12 +43,10 @@ public class NeuralNetwork {
     @Getter(lazy = true)
     private final double randomWeightMin = -getRandomWeightMax();
 
-
     //Hyperparameters
     private final double learningRate;
     private final int maxEpoch;
     private final double maxError;
-
 
     /**
      * Creates a new NeuralNetwork object.
@@ -48,7 +56,7 @@ public class NeuralNetwork {
      * @param hiddenLayers  The amount of neurons in each hidden layer for the network
      * @param outputLayer   The amount of output neurons for the network
      */
-    public NeuralNetwork(double learningRate, int maxEpoch, double maxError, int inputLayer, int[] hiddenLayers, int outputLayer) {
+    public NeuralNetwork(double learningRate, int maxEpoch, double maxError, double[][] inputs, double[][] outputs, int inputLayer, int[] hiddenLayers, int outputLayer) {
         this.learningRate = learningRate;
         this.inputLayer = inputLayer;
         this.hiddenLayers = hiddenLayers;
@@ -56,7 +64,82 @@ public class NeuralNetwork {
         this.maxEpoch = maxEpoch;
         this.maxError = maxError;
 
+        //Normalise inputs and outputs
+        inputNormalisations = new double[inputs[0].length][2];
+        outputNormalisations = new double[outputs[0].length][2];
+
+        System.out.println("Calculating min & max values...");
+
+        //Calculate min and max for inputs
+        for(int i = 0; i < inputLayer; ++i) {
+            int maxValId = 0;
+            int minValId = 0;
+            for(int j = 0; j < inputs.length; ++j) {
+                if(inputs[j][i] > inputs[maxValId][i]) {
+                    maxValId = j;
+                } else if(inputs[j][i] < inputs[minValId][i]) {
+                    minValId = j;
+                }
+            }
+            inputNormalisations[i][0] = inputs[maxValId][i];
+            inputNormalisations[i][1] = inputs[minValId][i];
+        }
+
+        //Calculate min and max for outputs
+        for(int i = 0; i < outputLayer; ++i) {
+            int maxValId = 0;
+            int minValId = 0;
+            for(int j = 0; j < outputs.length; ++j) {
+                if(outputs[j][i] > outputs[maxValId][i]) {
+                    maxValId = j;
+                } else if(outputs[j][i] < outputs[minValId][i]) {
+                    minValId = j;
+                }
+            }
+            outputNormalisations[i][0] = outputs[maxValId][i];
+            outputNormalisations[i][1] = outputs[minValId][i];
+        }
+
+        System.out.println("Normalising...");
+
+        //Normalise inputs
+        for(int i = 0; i < inputs.length; ++i) {
+            for(int j = 0; j < inputs[i].length; ++j) {
+                double maxVal = inputNormalisations[j][0];
+                double minVal = inputNormalisations[j][1];
+                inputs[i][j] = ((inputs[i][j] - minVal) / (maxVal - minVal));
+            }
+        }
+
+        //Normalise outputs
+        for(int i = 0; i < outputs.length; ++i) {
+            for(int j = 0; j < outputs[i].length; ++j) {
+                double maxVal = outputNormalisations[j][0];
+                double minVal = outputNormalisations[j][1];
+                outputs[i][j] = ((outputs[i][j] - minVal) / (maxVal - minVal));
+            }
+        }
+
+        int validationEnd = (inputs.length / 10) * 2;
+        int testEnd = validationEnd * 2;
+        validationInputs = Arrays.copyOfRange(inputs, 0, validationEnd);
+        correctValidationOutputs = Arrays.copyOfRange(outputs, 0, validationEnd);
+        testInputs = Arrays.copyOfRange(inputs, validationEnd, testEnd);
+        correctTestOutputs = Arrays.copyOfRange(outputs, validationEnd, testEnd);
+        this.inputs = Arrays.copyOfRange(inputs, testEnd, inputs.length);
+        this.correctOutputs = Arrays.copyOfRange(outputs, testEnd, inputs.length);
+
         this.setup();
+    }
+
+    public void denormalise(double[][] output) {
+        for(int i = 0; i < output.length; ++i) {
+            for(int j = 0; j < output[i].length; ++j) {
+                double maxVal = outputNormalisations[j][0];
+                double minVal = outputNormalisations[j][1];
+                output[i][j] = (maxVal - minVal) * ((output[i][j])) + minVal;
+            }
+        }
     }
 
     private void setup() {
@@ -150,7 +233,7 @@ public class NeuralNetwork {
 
     public FinishReason runTraining() {
         //Run until maxEpoch, or forever if -1 is specified
-        double previousValidationError = 1;
+        double previousValidationError = Double.MAX_VALUE;
         double totalError = 1;
         for(int epoch = 0; epoch != maxEpoch; ++epoch) {
             if(totalError <= maxError) {
@@ -168,21 +251,28 @@ public class NeuralNetwork {
 
                     double[] output = getOutputs();
 
+                    double exampleError = 0;
                     for(int j = 0; j < correctValidationOutputs[i].length; ++j) {
-                        double inputError = Math.pow(output[j] - correctValidationOutputs[i][j], 2);
-                        validationError += inputError;
+                        double outputError = Math.pow(output[j] - correctValidationOutputs[i][j], 2);
+                        exampleError += outputError;
                     }
-
-                    if(validationError > previousValidationError) {
-                        System.out.println(validationError);
-                        System.out.println(previousValidationError);
-                        restoreNetworkSnapshot(SnapshotName.LAST_VALIDATION_RUN);
-                        return FinishReason.VALIDATION_ERROR_WORSE;
-                    }
-
-                    createNetworkSnapshot(SnapshotName.LAST_VALIDATION_RUN);
-                    previousValidationError = validationError;
+                    exampleError += exampleError / correctValidationOutputs[i].length;
+                    validationError += exampleError;
                 }
+
+                validationError = validationError / validationInputs.length;
+                System.out.println("Validation Error: " + validationError);
+                System.out.println("Previous Validation Error: " + previousValidationError);
+
+                if(validationError > previousValidationError) {
+                    System.out.println(validationError);
+                    System.out.println(previousValidationError);
+                    restoreNetworkSnapshot(SnapshotName.LAST_VALIDATION_RUN);
+                    return FinishReason.VALIDATION_ERROR_WORSE;
+                }
+
+                createNetworkSnapshot(SnapshotName.LAST_VALIDATION_RUN);
+                previousValidationError = validationError;
             }
 
             //Calculate error and do another round of backpropagation
@@ -194,12 +284,19 @@ public class NeuralNetwork {
 
                 double[] output = getOutputs();
 
+                double exampleError = 0;
                 for(int j = 0; j < correctOutputs[i].length; ++j) {
-                    double inputError = Math.pow(output[j] - correctOutputs[i][j], 2);
-                    totalError += inputError;
+                    double inputError = Math.pow(correctOutputs[i][j] - output[j], 2);
+                    exampleError += inputError;
                 }
+                exampleError = exampleError / correctOutputs[i].length;
+                totalError += exampleError;
 
-                runBackpropagation(correctOutputs[0]);
+                runBackpropagation(correctOutputs[i]);
+            }
+            totalError = totalError / correctOutputs.length;
+            if(epoch % 100 == 0) {
+                System.out.println("Total Error:" + totalError);
             }
         }
         runForwardOperation();

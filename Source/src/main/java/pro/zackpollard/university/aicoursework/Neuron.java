@@ -12,9 +12,6 @@ public abstract class Neuron {
 
     @Getter
     @Setter
-    private double bias;
-    @Getter
-    @Setter
     private double rawOutput;
     @Getter
     @Setter
@@ -41,7 +38,7 @@ public abstract class Neuron {
     }
 
     public double calculateRawOutput() {
-        double output = bias;
+        double output = 0;
         for (Connection connection : connections.values()) {
             output += connection.getWeight() * connection.getFromNeuron().getProcessedOutput();
         }

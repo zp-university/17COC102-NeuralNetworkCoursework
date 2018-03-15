@@ -2,6 +2,9 @@ group 'pro.zackpollard.university'
 version '1.0-SNAPSHOT'
 
 apply plugin: 'java'
+apply plugin: 'application'
+
+mainClassName = 'pro.zackpollard.university.aicoursework.AICoursework'
 
 sourceCompatibility = 1.8
 
